@@ -1,5 +1,5 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+import type { HardhatUserConfig } from "hardhat/config";
+require("@nomicfoundation/hardhat-toolbox");
 
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || "";
 
@@ -14,6 +14,9 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      chainId: 31337,
+    },
     monadTestnet: {
       url: "https://testnet-rpc.monad.xyz",
       chainId: 10143,

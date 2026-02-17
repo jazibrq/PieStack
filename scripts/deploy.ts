@@ -1,4 +1,5 @@
 import hre from "hardhat";
+import "@nomicfoundation/hardhat-ethers";
 
 async function main() {
   const ethers = hre.ethers;
