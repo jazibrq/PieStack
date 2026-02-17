@@ -15,8 +15,8 @@ export const MONAD_TESTNET = {
 // Update these after deploying contracts to Monad testnet.
 // Deploy: DEPLOYER_PRIVATE_KEY=0x... npx hardhat run scripts/deploy.ts --network monadTestnet
 export const CONTRACT_ADDRESSES = {
-  stakingAdapter: '0x0000000000000000000000000000000000000000',
-  gameManager: '0x0000000000000000000000000000000000000000',
+  stakingAdapter: '0xDf684b08c571962c590A97EF67ccf33aF469bD7a',
+  gameManager: '0x358084BcF56215D0F6ed449D716860D6c954e320',
 };
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
