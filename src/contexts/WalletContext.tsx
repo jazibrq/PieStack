@@ -149,18 +149,24 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      // 1. Ensure correct network
-      await ensureMonadTestnet(ethereum);
-
-      // 2. Request accounts (will trigger MetaMask popup if not yet authorized)
+      // 1. Request accounts FIRST (must authorize site before switching chain)
       const accounts = await ethereum.request({ method: 'eth_requestAccounts' }) as string[];
+      console.log('[PieStack] Accounts authorized:', accounts);
+
+      // 2. Now switch to Monad Testnet
+      await ensureMonadTestnet(ethereum);
+      console.log('[PieStack] Switched to Monad Testnet');
 
       // 3. Bootstrap provider / signer / balance
       const data = await bootstrapWallet(ethereum, accounts);
-      if (!data) return;
+      if (!data) {
+        console.warn('[PieStack] bootstrapWallet returned null');
+        return;
+      }
+      console.log('[PieStack] Connected:', data.address, 'Balance:', data.balance, 'MON');
       applyWallet(data);
     } catch (error) {
-      console.error('Wallet connection failed:', error);
+      console.error('[PieStack] Wallet connection failed:', error);
     }
   }, [applyWallet]);
 
@@ -169,20 +175,34 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const autoConnect = async () => {
       const ethereum = getEthereum();
-      if (!ethereum) return;
+      if (!ethereum) {
+        console.log('[PieStack] No ethereum provider found');
+        return;
+      }
 
       try {
         // eth_accounts is read-only — no popup
         const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
-        if (accounts.length === 0) return;
+        if (accounts.length === 0) {
+          console.log('[PieStack] No previously authorized accounts');
+          return;
+        }
 
-        await ensureMonadTestnet(ethereum);
+        console.log('[PieStack] Auto-reconnecting with account:', accounts[0]);
+
+        // Check current chain — only switch if not already on Monad
+        const currentChainId = await ethereum.request({ method: 'eth_chainId' }) as string;
+        if (currentChainId.toLowerCase() !== MONAD_TESTNET.chainIdHex.toLowerCase()) {
+          console.log('[PieStack] Wrong chain during auto-connect, switching...');
+          await ensureMonadTestnet(ethereum);
+        }
 
         const data = await bootstrapWallet(ethereum, accounts);
         if (!data) return;
+        console.log('[PieStack] Auto-connected:', data.address, 'Balance:', data.balance, 'MON');
         applyWallet(data);
       } catch (error) {
-        console.error('Auto-connect failed:', error);
+        console.error('[PieStack] Auto-connect failed:', error);
       }
     };
 

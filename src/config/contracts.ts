@@ -1,6 +1,6 @@
 export const MONAD_TESTNET = {
   chainId: 10143,
-  chainIdHex: '0x27A7',
+  chainIdHex: '0x279F',
   name: 'Monad Testnet',
   rpcUrl: 'https://testnet-rpc.monad.xyz',
   blockExplorer: 'https://testnet.monadexplorer.com',
