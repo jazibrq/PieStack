@@ -1,6 +1,17 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { ethers } from 'ethers';
 import { MONAD_TESTNET } from '@/config/contracts';
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+interface EthereumProvider extends ethers.Eip1193Provider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, handler: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+  isMetaMask?: boolean;
+}
 
 interface WalletContextType {
   isConnected: boolean;
@@ -26,10 +37,15 @@ const WalletContext = createContext<WalletContextType>({
 
 export const useWallet = () => useContext(WalletContext);
 
-async function switchToMonadTestnet() {
-  const ethereum = (window as unknown as { ethereum?: ethers.Eip1193Provider & { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum;
-  if (!ethereum) return;
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
+function getEthereum(): EthereumProvider | undefined {
+  return (window as unknown as { ethereum?: EthereumProvider }).ethereum;
+}
+
+async function ensureMonadTestnet(ethereum: EthereumProvider): Promise<void> {
   try {
     await ethereum.request({
       method: 'wallet_switchEthereumChain',
@@ -37,8 +53,8 @@ async function switchToMonadTestnet() {
     });
   } catch (switchError: unknown) {
     const err = switchError as { code?: number };
-    // Chain not added — add it
     if (err.code === 4902) {
+      // Chain not yet added — add it
       await ethereum.request({
         method: 'wallet_addEthereumChain',
         params: [{
@@ -55,6 +71,27 @@ async function switchToMonadTestnet() {
   }
 }
 
+/** Build provider + signer + fetch balance for a given address list. */
+async function bootstrapWallet(ethereum: EthereumProvider, accounts: string[]) {
+  if (accounts.length === 0) return null;
+
+  const browserProvider = new ethers.BrowserProvider(ethereum);
+  const userSigner = await browserProvider.getSigner();
+  const userAddress = await userSigner.getAddress();
+  const bal = await browserProvider.getBalance(userAddress);
+
+  return {
+    provider: browserProvider,
+    signer: userSigner,
+    address: userAddress,
+    balance: ethers.formatEther(bal),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Provider                                                           */
+/* ------------------------------------------------------------------ */
+
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -62,44 +99,39 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
 
+  // Keep a ref so event handlers always see latest state without re-registering
+  const connectedRef = useRef(isConnected);
+  connectedRef.current = isConnected;
+
+  /* ---- helpers exposed to consumers ---- */
+
   const refreshBalance = useCallback(async () => {
-    if (!provider || !address) return;
+    const ethereum = getEthereum();
+    if (!ethereum) return;
+
+    // Always build a fresh provider to avoid stale internal state
     try {
-      const bal = await provider.getBalance(address);
+      const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
+      if (accounts.length === 0) return;
+
+      const browserProvider = new ethers.BrowserProvider(ethereum);
+      const bal = await browserProvider.getBalance(accounts[0]);
       setBalance(ethers.formatEther(bal));
     } catch {
       // silently fail on balance refresh
     }
-  }, [provider, address]);
-
-  const connect = useCallback(async () => {
-    const ethereum = (window as unknown as { ethereum?: ethers.Eip1193Provider }).ethereum;
-    if (!ethereum) {
-      alert('Please install MetaMask or another Web3 wallet to connect.');
-      return;
-    }
-
-    try {
-      await switchToMonadTestnet();
-
-      const browserProvider = new ethers.BrowserProvider(ethereum);
-      const accounts = await browserProvider.send('eth_requestAccounts', []);
-
-      if (accounts.length === 0) return;
-
-      const userSigner = await browserProvider.getSigner();
-      const userAddress = await userSigner.getAddress();
-      const bal = await browserProvider.getBalance(userAddress);
-
-      setProvider(browserProvider);
-      setSigner(userSigner);
-      setAddress(userAddress);
-      setBalance(ethers.formatEther(bal));
-      setIsConnected(true);
-    } catch (error) {
-      console.error('Wallet connection failed:', error);
-    }
   }, []);
+
+  const applyWallet = useCallback(
+    (data: { provider: ethers.BrowserProvider; signer: ethers.Signer; address: string; balance: string }) => {
+      setProvider(data.provider);
+      setSigner(data.signer);
+      setAddress(data.address);
+      setBalance(data.balance);
+      setIsConnected(true);
+    },
+    [],
+  );
 
   const disconnect = useCallback(() => {
     setIsConnected(false);
@@ -109,55 +141,96 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setSigner(null);
   }, []);
 
-  // Auto-reconnect on page load if MetaMask already has authorized accounts
+  const connect = useCallback(async () => {
+    const ethereum = getEthereum();
+    if (!ethereum) {
+      alert('Please install MetaMask to connect.');
+      return;
+    }
+
+    try {
+      // 1. Ensure correct network
+      await ensureMonadTestnet(ethereum);
+
+      // 2. Request accounts (will trigger MetaMask popup if not yet authorized)
+      const accounts = await ethereum.request({ method: 'eth_requestAccounts' }) as string[];
+
+      // 3. Bootstrap provider / signer / balance
+      const data = await bootstrapWallet(ethereum, accounts);
+      if (!data) return;
+      applyWallet(data);
+    } catch (error) {
+      console.error('Wallet connection failed:', error);
+    }
+  }, [applyWallet]);
+
+  /* ---- Auto-reconnect on page load ---- */
+
   useEffect(() => {
     const autoConnect = async () => {
-      const ethereum = (window as unknown as { ethereum?: ethers.Eip1193Provider & { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum;
+      const ethereum = getEthereum();
       if (!ethereum) return;
 
       try {
-        // eth_accounts is read-only — no popup, just checks if already authorized
+        // eth_accounts is read-only — no popup
         const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
         if (accounts.length === 0) return;
 
-        await switchToMonadTestnet();
+        await ensureMonadTestnet(ethereum);
 
-        const browserProvider = new ethers.BrowserProvider(ethereum);
-        const userSigner = await browserProvider.getSigner();
-        const userAddress = await userSigner.getAddress();
-        const bal = await browserProvider.getBalance(userAddress);
-
-        setProvider(browserProvider);
-        setSigner(userSigner);
-        setAddress(userAddress);
-        setBalance(ethers.formatEther(bal));
-        setIsConnected(true);
+        const data = await bootstrapWallet(ethereum, accounts);
+        if (!data) return;
+        applyWallet(data);
       } catch (error) {
         console.error('Auto-connect failed:', error);
       }
     };
 
     autoConnect();
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Listen for account and chain changes
+  /* ---- accountsChanged / chainChanged listeners ---- */
+
   useEffect(() => {
-    const ethereum = (window as unknown as { ethereum?: ethers.Eip1193Provider & { on?: (event: string, handler: (...args: unknown[]) => void) => void; removeListener?: (event: string, handler: (...args: unknown[]) => void) => void } }).ethereum;
+    const ethereum = getEthereum();
     if (!ethereum?.on) return;
 
-    const handleAccountsChanged = (accounts: unknown) => {
-      const accts = accounts as string[];
-      if (accts.length === 0) {
+    const handleAccountsChanged = async (raw: unknown) => {
+      const accounts = raw as string[];
+      if (accounts.length === 0) {
         disconnect();
-      } else if (isConnected) {
-        setAddress(accts[0]);
+        return;
+      }
+
+      if (!connectedRef.current) return;
+
+      // Rebuild provider + signer + balance for the new account
+      try {
+        const data = await bootstrapWallet(ethereum, accounts);
+        if (data) applyWallet(data);
+      } catch (err) {
+        console.error('Failed to switch account:', err);
       }
     };
 
-    const handleChainChanged = () => {
-      // Re-connect on chain change to refresh provider
-      if (isConnected) {
-        connect();
+    const handleChainChanged = async () => {
+      if (!connectedRef.current) return;
+
+      // Rebuild everything so provider + balance match the new chain
+      try {
+        const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
+        if (accounts.length === 0) {
+          disconnect();
+          return;
+        }
+
+        await ensureMonadTestnet(ethereum);
+        const data = await bootstrapWallet(ethereum, accounts);
+        if (data) applyWallet(data);
+      } catch (err) {
+        console.error('Chain change handling failed:', err);
       }
     };
 
@@ -168,15 +241,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       ethereum.removeListener?.('accountsChanged', handleAccountsChanged);
       ethereum.removeListener?.('chainChanged', handleChainChanged);
     };
-  }, [isConnected, connect, disconnect]);
+  }, [applyWallet, disconnect]);
 
-  // Refresh balance periodically
+  /* ---- Periodic balance refresh (every 15 s) ---- */
+
   useEffect(() => {
     if (!isConnected) return;
     refreshBalance();
     const interval = setInterval(refreshBalance, 15000);
     return () => clearInterval(interval);
   }, [isConnected, refreshBalance]);
+
+  /* ---- Render ---- */
 
   return (
     <WalletContext.Provider value={{
