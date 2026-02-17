@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { VideoBackground } from '@/components/VideoBackground';
 import { GrainOverlay } from '@/components/GrainOverlay';
@@ -9,9 +9,10 @@ import { MatchOverlay } from '@/components/modals/MatchOverlay';
 import { PartnersBanner } from '@/components/home/PartnersBanner';
 import { Footer } from '@/components/layout/Footer';
 import { Leaderboard } from '@/components/home/Leaderboard';
+import { BulletHellGame } from '@/components/game/BulletHellGame';
 import {
   Plus, Users, Filter, Search,
-  ChevronDown, Swords, Clock
+  ChevronDown, Swords, Clock, Gamepad2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -41,9 +42,27 @@ const Play = () => {
   const [sortBy, setSortBy] = useState('Most Recent');
   const [activeSection, setActiveSection] = useState<'play' | 'leaderboard'>('play');
 
+  // Game state
+  const [gamePlaying, setGamePlaying] = useState(false);
+  const [lastGameResult, setLastGameResult] = useState<{ score: number; stage: number; kills: number } | null>(null);
+
   const { isConnected, connect } = useWallet();
   const { activeLobbies, joinLobby, loading: gameLoading } = useGameManager();
   const { availableRewards } = useStaking();
+
+  const handleStartQuickPlay = useCallback(() => {
+    setLastGameResult(null);
+    setGamePlaying(true);
+  }, []);
+
+  const handleGameOver = useCallback((score: number, stage: number, kills: number) => {
+    setLastGameResult({ score, stage, kills });
+    setGamePlaying(false);
+  }, []);
+
+  const handleGameExit = useCallback(() => {
+    setGamePlaying(false);
+  }, []);
 
   const handleJoinLobby = async (lobby: LobbyData) => {
     if (!isConnected) {
@@ -84,12 +103,46 @@ const Play = () => {
 
   return (
     <div className="min-h-screen">
+      {/* Full-screen game overlay */}
+      {gamePlaying && (
+        <BulletHellGame onGameOver={handleGameOver} onExit={handleGameExit} />
+      )}
+
       <VideoBackground />
       <GrainOverlay />
       <Navigation />
 
       <main className="relative z-10 pt-24 pb-12">
         <div className="container mx-auto max-w-6xl px-4">
+          {/* Last Game Result Banner */}
+          {lastGameResult && (
+            <div className="card-surface p-4 mb-6 border border-primary/30 bg-primary/5">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-4">
+                  <Gamepad2 className="w-6 h-6 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold">Last Game Result</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Score: <span className="text-primary">{lastGameResult.score.toLocaleString()}</span>
+                      {' '}&bull;{' '}
+                      Stage: <span className="text-amber-400">{lastGameResult.stage}</span>
+                      {' '}&bull;{' '}
+                      Kills: <span className="text-emerald-400">{lastGameResult.kills}</span>
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleStartQuickPlay}
+                  className="btn-cyan-gradient gap-2"
+                >
+                  <Gamepad2 className="w-4 h-4" />
+                  Play Again
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
@@ -101,16 +154,26 @@ const Play = () => {
                 </p>
               )}
             </div>
-            <Button
-              onClick={() => {
-                if (!isConnected) { connect(); return; }
-                setHostModalOpen(true);
-              }}
-              className="btn-cyan-gradient gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Host Lobby
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleStartQuickPlay}
+                className="btn-cyan-gradient gap-2"
+              >
+                <Gamepad2 className="w-4 h-4" />
+                Quick Play
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!isConnected) { connect(); return; }
+                  setHostModalOpen(true);
+                }}
+                variant="outline"
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Host Lobby
+              </Button>
+            </div>
           </div>
 
           {/* Section Toggle */}
