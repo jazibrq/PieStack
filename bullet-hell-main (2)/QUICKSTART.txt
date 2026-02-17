@@ -1,0 +1,162 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                    BULLET HELL - QUICK START                     ║
+║                     Touhou-Inspired Game                         ║
+╚══════════════════════════════════════════════════════════════════╝
+
+INSTALLATION
+═══════════════════════════════════════════════════════════════════
+
+1. Install Python 3.8 or higher from python.org
+
+2. Open a terminal/command prompt in this folder
+
+3. Install dependencies:
+   
+   pip install pygame numpy
+
+   OR use the requirements file:
+   
+   pip install -r requirements.txt
+
+   Note: numpy is optional (needed for sound effects)
+
+4. Run the game:
+   
+   python main.py
+
+
+CONTROLS
+═══════════════════════════════════════════════════════════════════
+
+MENU:
+  • ENTER ............ Start Game
+  • S ................ Change Seed
+  • ESC .............. Quit
+
+GAMEPLAY:
+  • Arrow Keys/WASD .. Move
+  • Z or SPACE ....... Shoot (hold for continuous fire)
+  • SHIFT ............ Slow movement (shows hitbox - use this!)
+  • P ................ Pause
+  • ESC .............. Return to Menu
+
+
+GAME BASICS
+═══════════════════════════════════════════════════════════════════
+
+OBJECTIVE:
+  • Survive as long as possible
+  • Defeat waves of enemies
+  • Beat bosses at the end of each stage
+  • Increase your score
+
+STAGES:
+  • Each stage has 5 waves of enemies
+  • After wave 5, a boss appears
+  • Defeat the boss to advance to the next stage
+  • Difficulty increases each stage
+
+POWER-UPS:
+  • Green Cross ...... Health (+30 HP)
+  • Red Star ......... Damage boost
+  • Purple 'P' ....... Power level up
+  • Cyan Hexagon ..... Shield (blocks 1 hit)
+
+SURVIVAL TIPS:
+  • USE SHIFT to slow down and see your tiny hitbox
+  • Only the center pixel of your hitbox counts
+  • Stay calm and find gaps in bullet patterns
+  • Collect power-ups to increase your strength
+  • Learn boss patterns - they're predictable!
+
+
+SEED SYSTEM
+═══════════════════════════════════════════════════════════════════
+
+The game uses SEEDS for deterministic randomization:
+
+  • Same seed = same enemies, same bosses, same bullets
+  • Perfect for competing with friends
+  • Practice the same level layout repeatedly
+  • Only skill determines the outcome
+
+HOW TO USE:
+  1. Press S in the main menu
+  2. Enter any number (e.g., 12345)
+  3. Share the seed with friends
+  4. Compare scores!
+
+
+BOSSES
+═══════════════════════════════════════════════════════════════════
+
+The game features 10 unique bosses:
+
+  1. Crimson Demon .......... Circle/spiral patterns
+  2. Void Serpent ........... Wave patterns
+  3. Celestial Guardian ..... Homing bullets
+  4. Infernal Titan ......... Aggressive spirals
+  5. Frozen Empress ......... Dense bullet walls
+  6. Thunder Lord ........... Fast erratic patterns
+  7. Shadow Phantom ......... Teleporting attacks
+  8. Crystal Archon ......... Geometric patterns
+  9. Nightmare Beast ........ Chaotic attacks
+  10. Eternal Overlord ....... The final challenge
+
+Each boss has 3-4 phases. They get angrier as you damage them!
+
+
+SCORING
+═══════════════════════════════════════════════════════════════════
+
+  • Enemy Kill .......... 100 × Stage Number
+  • Boss Kill ........... 5,000 × Stage Number  
+  • Stage Complete ...... 10,000 points
+
+Try to beat your high score!
+
+
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════
+
+Problem: Game won't start
+Solution: Make sure pygame is installed: pip install pygame
+
+Problem: No sound
+Solution: Install numpy: pip install numpy
+
+Problem: Too difficult
+Solution: 
+  • Use SHIFT more often to slow down
+  • Focus on dodging, not shooting
+  • Stay near the bottom of the screen
+  • Collect power-ups early
+
+
+CUSTOMIZATION
+═══════════════════════════════════════════════════════════════════
+
+Want to adjust the game? Edit config.py to change:
+  • Player speed
+  • Enemy difficulty
+  • Bullet speed
+  • Spawn rates
+  • Screen size
+  • And more!
+
+
+HAVE FUN!
+═══════════════════════════════════════════════════════════════════
+
+This is a challenging game. Don't get discouraged!
+
+  • Start with easy movement patterns
+  • Practice dodging in safe areas
+  • Learn one boss at a time
+  • Use the seed system to practice
+
+Good luck and happy dodging!
+
+═══════════════════════════════════════════════════════════════════
+For more information, see README.md
+═══════════════════════════════════════════════════════════════════

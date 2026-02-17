@@ -3,6 +3,41 @@ import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
 import { CONTRACT_ADDRESSES, STAKING_ADAPTER_ABI, MONAD_TESTNET, isContractDeployed } from '@/config/contracts';
 
+// --- Local simulation layer for demo ---
+const STAKING_KEY = 'piestack_stake';
+
+interface LocalStake {
+  principal: number;
+  depositedAt: number;
+  accumulatedRewards: number;
+  lastCalcAt: number;
+}
+
+function getLocalStake(addr: string): LocalStake | null {
+  try {
+    const raw = localStorage.getItem(`${STAKING_KEY}_${addr}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveLocalStake(addr: string, stake: LocalStake) {
+  localStorage.setItem(`${STAKING_KEY}_${addr}`, JSON.stringify(stake));
+}
+
+function clearLocalStake(addr: string) {
+  localStorage.removeItem(`${STAKING_KEY}_${addr}`);
+}
+
+/** Calculate simulated rewards based on 8% APY, accelerated 100,000x for demo. */
+function calcSimulatedRewards(stake: LocalStake): number {
+  if (stake.principal <= 0) return stake.accumulatedRewards;
+  const now = Date.now();
+  const elapsedSec = (now - stake.lastCalcAt) / 1000;
+  const DEMO_MULTIPLIER = 100_000; // ~1 real minute ≈ 70 simulated days
+  const perSecondRate = 0.08 / (365.25 * 24 * 3600);
+  return stake.accumulatedRewards + stake.principal * perSecondRate * elapsedSec * DEMO_MULTIPLIER;
+}
+
 interface StakingState {
   principal: string;
   availableRewards: string;
@@ -35,26 +70,53 @@ export function useStaking() {
       return;
     }
 
-    // Don't try to read from the zero address placeholder
-    if (!isContractDeployed()) return;
+    // Try on-chain data first
+    if (isContractDeployed()) {
+      const contract = getContract();
+      if (contract) {
+        try {
+          const [principal, rewards, cooldown] = await Promise.all([
+            contract.getPrincipal(address),
+            contract.getAvailableRewards(address),
+            contract.faucetCooldownRemaining(address),
+          ]);
+          const principalVal = parseFloat(ethers.formatEther(principal));
+          const rewardsVal = parseFloat(ethers.formatEther(rewards));
 
-    const contract = getContract();
-    if (!contract) return;
+          if (principalVal > 0 || rewardsVal > 0) {
+            // Sync on-chain data to local storage
+            saveLocalStake(address, {
+              principal: principalVal,
+              depositedAt: Date.now(),
+              accumulatedRewards: rewardsVal,
+              lastCalcAt: Date.now(),
+            });
+            setState({
+              principal: ethers.formatEther(principal),
+              availableRewards: ethers.formatEther(rewards),
+              faucetCooldown: Number(cooldown),
+              loading: false,
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('[PieStack] Failed to fetch staking balances:', error);
+        }
+      }
+    }
 
-    try {
-      const [principal, rewards, cooldown] = await Promise.all([
-        contract.getPrincipal(address),
-        contract.getAvailableRewards(address),
-        contract.faucetCooldownRemaining(address),
-      ]);
+    // Fall back to local simulation
+    const local = getLocalStake(address);
+    if (local && local.principal > 0) {
+      const rewards = calcSimulatedRewards(local);
+      const now = Date.now();
+      saveLocalStake(address, { ...local, accumulatedRewards: rewards, lastCalcAt: now });
       setState({
-        principal: ethers.formatEther(principal),
-        availableRewards: ethers.formatEther(rewards),
-        faucetCooldown: Number(cooldown),
+        principal: local.principal.toString(),
+        availableRewards: rewards.toFixed(18),
+        faucetCooldown: 0,
         loading: false,
       });
-    } catch (error) {
-      console.error('[PieStack] Failed to fetch staking balances:', error);
     }
   }, [isConnected, address, getContract]);
 
@@ -119,6 +181,16 @@ export function useStaking() {
       const receipt = await tx.wait();
       console.log('[PieStack] Deposit confirmed in block:', receipt.blockNumber);
 
+      // Track in local simulation layer
+      const existing = getLocalStake(address!) || { principal: 0, depositedAt: Date.now(), accumulatedRewards: 0, lastCalcAt: Date.now() };
+      const currentRewards = calcSimulatedRewards(existing);
+      saveLocalStake(address!, {
+        principal: existing.principal + parsedAmount,
+        depositedAt: existing.depositedAt || Date.now(),
+        accumulatedRewards: currentRewards,
+        lastCalcAt: Date.now(),
+      });
+
       // Refresh both staking balances and wallet MON balance
       await Promise.all([fetchBalances(), refreshBalance()]);
       console.log('[PieStack] Balances refreshed after deposit');
@@ -151,6 +223,7 @@ export function useStaking() {
       const tx = await contract.withdraw();
       console.log('[PieStack] Withdraw tx sent:', tx.hash);
       await tx.wait();
+      if (address) clearLocalStake(address);
       await Promise.all([fetchBalances(), refreshBalance()]);
     } catch (error: unknown) {
       const err = error as { code?: string | number };
@@ -161,7 +234,7 @@ export function useStaking() {
     } finally {
       setState(prev => ({ ...prev, loading: false }));
     }
-  }, [getContract, fetchBalances, refreshBalance]);
+  }, [getContract, fetchBalances, refreshBalance, address]);
 
   const claimFaucet = useCallback(async () => {
     if (!isContractDeployed()) throw new Error('Staking contract not deployed yet.');

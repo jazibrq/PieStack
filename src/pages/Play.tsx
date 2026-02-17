@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { VideoBackground } from '@/components/VideoBackground';
 import { GrainOverlay } from '@/components/GrainOverlay';
@@ -50,6 +50,39 @@ const Play = () => {
   const { activeLobbies, joinLobby, loading: gameLoading } = useGameManager();
   const { availableRewards } = useStaking();
 
+  // Generate 5 simulated lobbies for demo
+  const fakeLobbies = useMemo<(LobbyData & { isFake?: boolean })[]>(() => {
+    const hosts = [
+      '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38',
+      '0x8Ba1f109551bD432803012645Ac136ddd64DBA72',
+      '0xdD2FD4581271e230360230F9337D5c0430Bf44C0',
+      '0x2546BcD3c84621e976D8185a91A922aE77ECEc30',
+      '0xbDA5747bFD65F08deb54cb465eB87D40e51B197E',
+    ];
+    const buyIns = ['0.05', '0.1', '0.25', '0.01', '0.5'];
+    const maxPlayersList = [4, 2, 8, 4, 2];
+    const playerCounts = [2, 1, 5, 3, 1];
+    const fakeAddresses = [
+      '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+      '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+      '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+      '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    ];
+
+    return hosts.map((host, i) => ({
+      id: 10001 + i,
+      host,
+      buyIn: buyIns[i],
+      maxPlayers: maxPlayersList[i],
+      players: fakeAddresses.slice(0, playerCounts[i]),
+      resolved: false,
+      active: true,
+      prizePool: (parseFloat(buyIns[i]) * playerCounts[i]).toFixed(4),
+      isFake: true,
+    }));
+  }, []);
+
   const handleStartQuickPlay = useCallback(() => {
     setLastGameResult(null);
     setGamePlaying(true);
@@ -64,7 +97,14 @@ const Play = () => {
     setGamePlaying(false);
   }, []);
 
-  const handleJoinLobby = async (lobby: LobbyData) => {
+  const handleJoinLobby = async (lobby: LobbyData & { isFake?: boolean }) => {
+    // Fake lobby — just start the game directly
+    if (lobby.isFake) {
+      setLastGameResult(null);
+      setGamePlaying(true);
+      return;
+    }
+
     if (!isConnected) {
       connect();
       return;
@@ -88,7 +128,8 @@ const Play = () => {
     }
   };
 
-  const filteredLobbies = activeLobbies
+  const allLobbies: (LobbyData & { isFake?: boolean })[] = [...fakeLobbies, ...activeLobbies];
+  const filteredLobbies = allLobbies
     .filter((lobby) => {
       if (sizeFilter && lobby.maxPlayers !== sizeFilter) return false;
       if (searchQuery && !lobby.host.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -350,7 +391,7 @@ const Play = () => {
                                 disabled={gameLoading || lobby.players.length >= lobby.maxPlayers}
                                 className="btn-cyan-gradient opacity-70 group-hover:opacity-100 transition-opacity duration-200"
                               >
-                                {gameLoading ? 'Joining...' : 'Join'}
+                                {gameLoading ? 'Joining...' : (lobby.isFake ? 'Play' : 'Join')}
                               </Button>
                             </td>
                           </tr>
@@ -397,7 +438,7 @@ const Play = () => {
                             disabled={gameLoading || lobby.players.length >= lobby.maxPlayers}
                             className="btn-cyan-gradient"
                           >
-                            Join
+                            {lobby.isFake ? 'Play' : 'Join'}
                           </Button>
                         </div>
                       </div>

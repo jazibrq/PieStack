@@ -10,38 +10,19 @@ import { Footer } from '@/components/layout/Footer';
 import {
   Wallet, TrendingUp,
   ArrowUpRight, ArrowDownRight,
-  Calendar, Droplets, Loader2
+  Calendar
 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useStaking } from '@/hooks/useStaking';
 
 const Portfolio = () => {
   const [modalType, setModalType] = useState<'deposit' | 'withdraw' | null>(null);
-  const [faucetLoading, setFaucetLoading] = useState(false);
   const { isConnected, balance, connect } = useWallet();
-  const { principal, availableRewards, faucetCooldown, claimFaucet, refreshBalances } = useStaking();
+  const { principal, availableRewards, refreshBalances } = useStaking();
 
   const principalNum = parseFloat(principal);
   const rewardsNum = parseFloat(availableRewards);
   const totalPosition = principalNum + rewardsNum;
-
-  const formatCooldown = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handleFaucet = async () => {
-    setFaucetLoading(true);
-    try {
-      await claimFaucet();
-    } catch (error: unknown) {
-      const err = error as { reason?: string; message?: string };
-      alert(`Faucet failed: ${err.reason || err.message || 'Unknown error'}`);
-    } finally {
-      setFaucetLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen">
@@ -257,31 +238,6 @@ const Portfolio = () => {
                 </div>
               </div>
 
-              {/* Faucet Card */}
-              {isConnected && (
-                <div className="card-surface p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Droplets className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium">Testnet Faucet</p>
-                      <p className="text-xs text-muted-foreground">Get free MON (5-50 MON, 1hr cooldown)</p>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleFaucet}
-                    disabled={faucetLoading || faucetCooldown > 0}
-                    className="w-full btn-cyan-gradient gap-2"
-                  >
-                    {faucetLoading ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Claiming...</>
-                    ) : faucetCooldown > 0 ? (
-                      <>Cooldown: {formatCooldown(faucetCooldown)}</>
-                    ) : (
-                      <>Get Test MON</>
-                    )}
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
         </div>
