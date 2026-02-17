@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
-import { CONTRACT_ADDRESSES, STAKING_ADAPTER_ABI, MONAD_TESTNET } from '@/config/contracts';
+import { CONTRACT_ADDRESSES, STAKING_ADAPTER_ABI, MONAD_TESTNET, isContractDeployed } from '@/config/contracts';
 
 interface StakingState {
   principal: string;
@@ -34,6 +34,9 @@ export function useStaking() {
       setState({ principal: '0', availableRewards: '0', faucetCooldown: 0, loading: false });
       return;
     }
+
+    // Don't try to read from the zero address placeholder
+    if (!isContractDeployed()) return;
 
     const contract = getContract();
     if (!contract) return;
@@ -90,6 +93,15 @@ export function useStaking() {
       }
     }
 
+    // Verify deployed contract (not zero address)
+    if (!isContractDeployed()) {
+      throw new Error(
+        'Staking contract not deployed yet. Please deploy the StakingAdapter contract to Monad Testnet first.\n\n' +
+        'Run: DEPLOYER_PRIVATE_KEY=0x... npx hardhat run scripts/deploy.ts --network monadTestnet\n\n' +
+        'Then update CONTRACT_ADDRESSES in src/config/contracts.ts with the deployed address.'
+      );
+    }
+
     const contract = getContract(true);
     if (!contract) throw new Error('Failed to initialize contract. Please reconnect wallet.');
 
@@ -130,6 +142,7 @@ export function useStaking() {
   }, [isConnected, signer, address, balance, getContract, fetchBalances, refreshBalance]);
 
   const withdraw = useCallback(async () => {
+    if (!isContractDeployed()) throw new Error('Staking contract not deployed yet.');
     const contract = getContract(true);
     if (!contract) throw new Error('Wallet not connected');
 
@@ -151,6 +164,7 @@ export function useStaking() {
   }, [getContract, fetchBalances, refreshBalance]);
 
   const claimFaucet = useCallback(async () => {
+    if (!isContractDeployed()) throw new Error('Staking contract not deployed yet.');
     const contract = getContract(true);
     if (!contract) throw new Error('Wallet not connected');
 

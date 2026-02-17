@@ -11,12 +11,23 @@ export const MONAD_TESTNET = {
   },
 };
 
-// Update these addresses after deploying contracts to Monad testnet.
-// Run: npx hardhat run scripts/deploy.ts --network monadTestnet
+// ─── Contract Addresses ───────────────────────────────────────────────
+// Update these after deploying contracts to Monad testnet.
+// Deploy: DEPLOYER_PRIVATE_KEY=0x... npx hardhat run scripts/deploy.ts --network monadTestnet
 export const CONTRACT_ADDRESSES = {
   stakingAdapter: '0x0000000000000000000000000000000000000000',
   gameManager: '0x0000000000000000000000000000000000000000',
 };
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/** Returns true if the staking contract address has been set (not the zero-address placeholder). */
+export function isContractDeployed(): boolean {
+  return (
+    CONTRACT_ADDRESSES.stakingAdapter !== ZERO_ADDRESS &&
+    CONTRACT_ADDRESSES.stakingAdapter.length === 42
+  );
+}
 
 export const STAKING_ADAPTER_ABI = [
   {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
