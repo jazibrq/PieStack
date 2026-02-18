@@ -57,9 +57,14 @@ const COL = {
   enemy: '#ff2828',
   enemyCircle: '#ff6600',
   enemySpiral: '#b400ff',
+  enemyTank: '#22cc44',
+  enemySniper: '#00ddff',
+  enemyBurst: '#ffcc00',
   boss: '#ff00c8',
   bossGlow: 'rgba(255,0,200,0.2)',
   bullet: '#ff4444',
+  bulletSniper: '#00eeff',
+  bulletBurst: '#ffdd33',
   playerBullet: '#00ffaa',
   powerup: '#00ff64',
   shield: '#00ffff',
@@ -137,7 +142,7 @@ function createInitialState(): GameState {
     kills: 0,
     waveTimer: 0,
     spawnTimer: 0,
-    spawnRate: 1500,
+    spawnRate: 800,
     screenShake: 0,
     shakeIntensity: 0,
     message: 'STAGE 1',
@@ -147,26 +152,54 @@ function createInitialState(): GameState {
 }
 
 // ─── Enemy Factory ──────────────────────────────────────────
-function spawnEnemy(stage: number, wave: number): Enemy {
-  const types = ['basic', 'circle', 'spiral'];
-  const type = types[randInt(0, Math.min(types.length - 1, stage))];
-  // Stage scaling (big jumps between stages)
-  const stageSpeedMult = Math.pow(1.2, stage - 1);
-  const stageHpMult = Math.pow(1.2, stage - 1);
-  // Wave scaling within a stage (gentle ramp: +5% per wave)
-  const waveMult = 1 + (wave - 1) * 0.05;
+const ENEMY_TYPES_ALL = ['basic', 'circle', 'spiral', 'tank', 'sniper', 'burst'];
 
+function enemyColor(type: string): string {
+  switch (type) {
+    case 'circle': return COL.enemyCircle;
+    case 'spiral': return COL.enemySpiral;
+    case 'tank':   return COL.enemyTank;
+    case 'sniper': return COL.enemySniper;
+    case 'burst':  return COL.enemyBurst;
+    default:       return COL.enemy;
+  }
+}
+
+function spawnEnemy(stage: number, wave: number): Enemy {
+  // All 6 types available from wave 1 — every wave is a mix
+  const type = ENEMY_TYPES_ALL[randInt(0, ENEMY_TYPES_ALL.length - 1)];
+
+  // Difficulty offset: stage 1 plays like old stage 2 (effective = stage + 1)
+  const eff = stage + 1;
+  const stageSpeedMult = Math.pow(1.2, eff - 1);
+  const stageHpMult = Math.pow(1.2, eff - 1);
+  // Wave scaling within a stage (+7% per wave)
+  const waveMult = 1 + (wave - 1) * 0.07;
+
+  // Per-type modifiers (size, speed, hp, shootCD)
+  let sizeMult = 1;
+  let speedMult = 1;
+  let hpMult = 1;
+  let baseCD = 1200;
+  switch (type) {
+    case 'circle':  speedMult = 0.8; break;
+    case 'spiral':  baseCD = 400; break;
+    case 'tank':    sizeMult = 1.6; hpMult = 2.0; speedMult = 0.55; baseCD = 900; break;
+    case 'sniper':  speedMult = 0.7; baseCD = 1800; break;
+    case 'burst':   speedMult = 0.9; baseCD = 1400; break;
+  }
+
+  const hp = Math.floor(ENEMY_HP * stageHpMult * waveMult * hpMult);
   return {
     x: rand(40, GAME_W - 40),
     y: -30,
-    hp: Math.floor(ENEMY_HP * stageHpMult * waveMult),
-    maxHp: Math.floor(ENEMY_HP * stageHpMult * waveMult),
-    size: ENEMY_SIZE,
-    speed: ENEMY_BASE_SPEED * stageSpeedMult * waveMult * (type === 'circle' ? 0.8 : 1),
-    color: type === 'basic' ? COL.enemy : type === 'circle' ? COL.enemyCircle : COL.enemySpiral,
-    shootTimer: rand(500, 2000),
-    // Enemies shoot faster each wave (reduce CD by 6% per wave)
-    shootCD: Math.max(200, (type === 'spiral' ? 400 : 1200) * Math.pow(0.94, wave - 1)),
+    hp,
+    maxHp: hp,
+    size: Math.floor(ENEMY_SIZE * sizeMult),
+    speed: ENEMY_BASE_SPEED * stageSpeedMult * waveMult * speedMult,
+    color: enemyColor(type),
+    shootTimer: rand(300, 1200),
+    shootCD: Math.max(180, baseCD * Math.pow(0.93, wave - 1)),
     type,
     moveAngle: rand(0, Math.PI * 2),
     moveTimer: 0,
@@ -396,7 +429,7 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
             s.wave = 1;
             s.waveTimer = 0;
             s.spawnTimer = 0;
-            s.spawnRate = Math.max(400, Math.floor(1500 * Math.pow(0.85, s.stage - 1)));
+            s.spawnRate = Math.max(250, Math.floor(800 * Math.pow(0.82, s.stage - 1)));
             s.enemyBullets = [];
             s.enemies = [];
             s.score += SCORE_STAGE;
@@ -412,11 +445,12 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
       s.waveTimer += dt;
       s.spawnTimer += dt;
 
-      const stageScale = Math.pow(1.3, s.stage - 1);
-      // More enemies per wave: +2 per wave within each stage
-      const maxE = Math.min(MAX_ENEMIES, Math.floor(ENEMIES_PER_WAVE * stageScale) + (s.wave - 1) * 2);
-      // Spawn faster each wave: reduce interval by 8% per wave
-      const waveSpawnRate = Math.max(250, s.spawnRate * Math.pow(0.92, s.wave - 1));
+      const eff = s.stage + 1; // difficulty offset — stage 1 plays like old stage 2
+      const stageScale = Math.pow(1.3, eff - 1);
+      // More enemies per wave: +3 per wave within each stage
+      const maxE = Math.min(MAX_ENEMIES, Math.floor(ENEMIES_PER_WAVE * stageScale) + (s.wave - 1) * 3);
+      // Spawn faster each wave: reduce interval by 10% per wave
+      const waveSpawnRate = Math.max(180, s.spawnRate * Math.pow(0.90, s.wave - 1));
 
       if (s.spawnTimer >= waveSpawnRate && s.enemies.length < maxE) {
         s.enemies.push(spawnEnemy(s.stage, s.wave));
@@ -437,6 +471,22 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
           e.moveAngle += 0.03;
           e.x += Math.cos(e.moveAngle) * e.speed * 1.5;
           e.y += e.speed * 0.4;
+        } else if (e.type === 'tank') {
+          // Slow steady advance
+          e.y += e.speed;
+          e.x += Math.sin(e.moveTimer * 0.001) * 0.5;
+        } else if (e.type === 'sniper') {
+          // Moves to a Y position then strafes horizontally
+          if (e.y < 120) {
+            e.y += e.speed * 1.2;
+          } else {
+            e.x += Math.sin(e.moveTimer * 0.003) * e.speed * 1.5;
+          }
+        } else if (e.type === 'burst') {
+          // Zigzag descent
+          e.y += e.speed * 0.7;
+          e.moveAngle += 0.04;
+          e.x += Math.sin(e.moveAngle) * e.speed * 2;
         } else {
           e.y += e.speed;
           e.x += Math.sin(e.moveTimer * 0.002) * 0.8;
@@ -452,14 +502,33 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
         e.shootTimer -= dt;
         if (e.shootTimer <= 0 && e.y > 0) {
           e.shootTimer = e.shootCD;
-          // Bullet speed scales with both stage and wave (+4% per wave)
-          const eBSpd = BULLET_SPEED * Math.pow(1.15, s.stage - 1) * (1 + (s.wave - 1) * 0.04);
+          // Bullet speed scales with both stage and wave (+5% per wave)
+          const eff2 = s.stage + 1;
+          const eBSpd = BULLET_SPEED * Math.pow(1.15, eff2 - 1) * (1 + (s.wave - 1) * 0.05);
           if (e.type === 'spiral') {
+            // 4-way rotating spiral
             for (let j = 0; j < 4; j++) {
               const a = (j / 4) * Math.PI * 2 + e.moveAngle;
               s.enemyBullets.push({ x: e.x, y: e.y, angle: a, speed: eBSpd * 0.8, size: BULLET_SIZE, damage: 8, isPlayer: false });
             }
+          } else if (e.type === 'tank') {
+            // 3-way spread shot
+            const a = angleTo(e, p);
+            for (let j = -1; j <= 1; j++) {
+              s.enemyBullets.push({ x: e.x, y: e.y + e.size / 2, angle: a + j * 0.25, speed: eBSpd * 0.9, size: BULLET_SIZE + 2, damage: 14, isPlayer: false });
+            }
+          } else if (e.type === 'sniper') {
+            // Single fast accurate shot
+            const a = angleTo(e, p);
+            s.enemyBullets.push({ x: e.x, y: e.y + e.size / 2, angle: a, speed: eBSpd * 1.6, size: BULLET_SIZE + 1, damage: 18, isPlayer: false });
+          } else if (e.type === 'burst') {
+            // 3-bullet fan burst
+            const a = angleTo(e, p);
+            for (let j = -1; j <= 1; j++) {
+              s.enemyBullets.push({ x: e.x, y: e.y + e.size / 2, angle: a + j * 0.12, speed: eBSpd * (1.1 + j * 0.08), size: BULLET_SIZE, damage: 9, isPlayer: false });
+            }
           } else {
+            // basic + circle: aimed shot
             const a = angleTo(e, p);
             s.enemyBullets.push({ x: e.x, y: e.y + e.size / 2, angle: a, speed: eBSpd, size: BULLET_SIZE, damage: 10, isPlayer: false });
           }
@@ -501,7 +570,7 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
         s.wave++;
         s.waveTimer = 0;
         const waveProgress = (s.wave - 1) / WAVES_PER_STAGE;
-        s.spawnRate = Math.max(300, Math.floor(1500 * Math.pow(0.85, s.stage - 1) * (1 - waveProgress * 0.4)));
+        s.spawnRate = Math.max(200, Math.floor(800 * Math.pow(0.82, s.stage - 1) * (1 - waveProgress * 0.4)));
         if (s.wave > WAVES_PER_STAGE) {
           // Spawn boss
           s.boss = createBoss(s.stage);
@@ -664,10 +733,12 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
       ctx.beginPath();
       ctx.arc(e.x, e.y, e.size * 1.4, 0, Math.PI * 2);
       ctx.fill();
-      // Body — use enemy.png sprite if loaded
+      // Body — use enemy.png sprite for basic/circle/spiral; draw shapes for new types
       const eImg = enemyImgRef.current;
-      if (eImg) {
+      const useSprite = eImg && (e.type === 'basic' || e.type === 'circle' || e.type === 'spiral');
+      if (useSprite && eImg) {
         const spriteS = e.size * 2.5;
+        // Tint sprite via globalCompositeOperation for non-red types
         ctx.drawImage(eImg, e.x - spriteS / 2, e.y - spriteS / 2, spriteS, spriteS);
       } else {
         ctx.fillStyle = e.color;
@@ -683,7 +754,51 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
           ctx.lineTo(e.x - e.size * 0.7, e.y);
           ctx.closePath();
           ctx.fill();
+        } else if (e.type === 'tank') {
+          // Large hexagon
+          ctx.beginPath();
+          for (let si = 0; si < 6; si++) {
+            const a = (si / 6) * Math.PI * 2 - Math.PI / 2;
+            const px = e.x + Math.cos(a) * e.size;
+            const py = e.y + Math.sin(a) * e.size;
+            if (si === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+          // Inner ring
+          ctx.strokeStyle = '#ffffff44';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.size * 0.5, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (e.type === 'sniper') {
+          // Narrow elongated diamond
+          ctx.beginPath();
+          ctx.moveTo(e.x, e.y - e.size * 1.2);
+          ctx.lineTo(e.x + e.size * 0.4, e.y);
+          ctx.lineTo(e.x, e.y + e.size * 1.2);
+          ctx.lineTo(e.x - e.size * 0.4, e.y);
+          ctx.closePath();
+          ctx.fill();
+          // Crosshair dot
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (e.type === 'burst') {
+          // Star shape
+          ctx.beginPath();
+          for (let si = 0; si < 10; si++) {
+            const a = (si / 10) * Math.PI * 2 - Math.PI / 2;
+            const r = si % 2 === 0 ? e.size : e.size * 0.5;
+            const px = e.x + Math.cos(a) * r;
+            const py = e.y + Math.sin(a) * r;
+            if (si === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
         } else {
+          // basic triangle
           ctx.beginPath();
           ctx.moveTo(e.x, e.y + e.size);
           ctx.lineTo(e.x - e.size * 0.8, e.y - e.size * 0.6);

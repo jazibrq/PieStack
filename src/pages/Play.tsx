@@ -67,9 +67,8 @@ function buildPostGameBoard(playerScore: number, lobbySize: number, buyIn: numbe
     entries.push({ rank: 0, name: LEADERBOARD_NAMES[ni], address: LEADERBOARD_ADDRS[ni % LEADERBOARD_ADDRS.length], score: Math.max(100, Math.floor(playerScore * (0.3 + rng() * 1.4))), yield: '0', isYou: false });
   }
   entries.sort((a, b) => b.score - a.score);
-  const splits = [0.50, 0.25, 0.15];
-  const rest = lobbySize > 3 ? 0.10 / (lobbySize - 3) : 0;
-  entries.forEach((e, i) => { e.rank = i + 1; e.yield = (pool * (i < 3 ? splits[i] : rest)).toFixed(4); });
+  // Winner takes all — 1st place gets the entire pool
+  entries.forEach((e, i) => { e.rank = i + 1; e.yield = (i === 0 ? pool : 0).toFixed(4); });
   return entries;
 }
 
