@@ -169,17 +169,14 @@ export function useStaking() {
 
     // Convert to wei (18 decimals, exact)
     const amountWei = ethers.parseEther(amountEther);
-    console.log('[PieStack] Deposit: sending', amountEther, 'MON (', amountWei.toString(), 'wei ) from', address);
 
     setState(prev => ({ ...prev, loading: true }));
     try {
       // Send deposit tx — MetaMask popup will appear
       const tx = await contract.deposit({ value: amountWei });
-      console.log('[PieStack] Deposit tx sent:', tx.hash);
 
       // Wait for on-chain confirmation
-      const receipt = await tx.wait();
-      console.log('[PieStack] Deposit confirmed in block:', receipt.blockNumber);
+      await tx.wait();
 
       // Track in local simulation layer
       const existing = getLocalStake(address!) || { principal: 0, depositedAt: Date.now(), accumulatedRewards: 0, lastCalcAt: Date.now() };
@@ -193,7 +190,6 @@ export function useStaking() {
 
       // Refresh both staking balances and wallet MON balance
       await Promise.all([fetchBalances(), refreshBalance()]);
-      console.log('[PieStack] Balances refreshed after deposit');
     } catch (error: unknown) {
       const err = error as { code?: string | number; reason?: string; message?: string };
 
@@ -221,7 +217,6 @@ export function useStaking() {
     setState(prev => ({ ...prev, loading: true }));
     try {
       const tx = await contract.withdraw();
-      console.log('[PieStack] Withdraw tx sent:', tx.hash);
       await tx.wait();
       if (address) clearLocalStake(address);
       await Promise.all([fetchBalances(), refreshBalance()]);
@@ -244,7 +239,6 @@ export function useStaking() {
     setState(prev => ({ ...prev, loading: true }));
     try {
       const tx = await contract.faucet();
-      console.log('[PieStack] Faucet tx sent:', tx.hash);
       await tx.wait();
       await Promise.all([fetchBalances(), refreshBalance()]);
     } catch (error: unknown) {
