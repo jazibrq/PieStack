@@ -137,3 +137,31 @@ export function simulateWithdraw(
   const rewards = calcSimulatedRewards(existing, now);
   return { totalWithdrawn: existing.principal + rewards };
 }
+
+// ─── Game winnings storage ────────────────────────────
+export const WINNINGS_KEY = 'piestack_winnings';
+
+export function winningsKey(addr: string): string {
+  return `${WINNINGS_KEY}_${addr}`;
+}
+
+/** Read accumulated game winnings for an address. */
+export function getGameWinnings(addr: string): number {
+  try {
+    const raw = localStorage.getItem(winningsKey(addr));
+    return raw ? parseFloat(raw) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Add a game's yield to the accumulated total. */
+export function addGameWinnings(addr: string, amount: number): void {
+  const current = getGameWinnings(addr);
+  localStorage.setItem(winningsKey(addr), (current + amount).toString());
+}
+
+/** Reset game winnings (e.g. on withdrawal). */
+export function clearGameWinnings(addr: string): void {
+  localStorage.removeItem(winningsKey(addr));
+}

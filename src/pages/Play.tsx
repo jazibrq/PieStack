@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useWallet } from '@/contexts/WalletContext';
+import { addGameWinnings } from '@/lib/staking-sim';
 import { useGameManager, LobbyData } from '@/hooks/useGameManager';
 import { useStaking } from '@/hooks/useStaking';
 
@@ -97,7 +98,7 @@ const Play = () => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [activeLobbyContext, setActiveLobbyContext] = useState<{ size: number; buyIn: number }>({ size: 4, buyIn: 0.05 });
 
-  const { isConnected, connect } = useWallet();
+  const { isConnected, connect, address } = useWallet();
   const { activeLobbies, joinLobby, loading: gameLoading } = useGameManager();
   const { availableRewards } = useStaking();
 
@@ -145,7 +146,16 @@ const Play = () => {
     setLastGameResult({ score, stage, kills });
     setGamePlaying(false);
     setShowLeaderboard(true);
-  }, []);
+
+    // Persist game winnings to localStorage
+    if (address) {
+      const board = buildPostGameBoard(score, activeLobbyContext.size, activeLobbyContext.buyIn);
+      const me = board.find(e => e.isYou);
+      if (me) {
+        addGameWinnings(address, parseFloat(me.yield));
+      }
+    }
+  }, [activeLobbyContext, address]);
 
   const handleGameExit = useCallback(() => {
     setGamePlaying(false);

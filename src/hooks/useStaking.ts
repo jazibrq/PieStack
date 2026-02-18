@@ -8,6 +8,7 @@ import {
   clearLocalStake,
   calcSimulatedRewards,
   simulateDeposit,
+  getGameWinnings,
   type LocalStake,
 } from '@/lib/staking-sim';
 
@@ -45,35 +46,28 @@ export function useStaking() {
 
     let faucetCooldown = 0;
 
-    // ── 1. Try on-chain data ──────────────────────────
+    let principalStr = '0';
+
+    // ── 1. Try on-chain principal ─────────────────────
     if (isContractDeployed()) {
       const contract = getContract();
       if (contract) {
         try {
-          const [principal, rewards, cooldown] = await Promise.all([
+          const [principal, cooldown] = await Promise.all([
             contract.getPrincipal(address),
-            contract.getAvailableRewards(address),
             contract.faucetCooldownRemaining(address),
           ]);
           const principalVal = parseFloat(ethers.formatEther(principal));
-          const rewardsVal = parseFloat(ethers.formatEther(rewards));
           faucetCooldown = Number(cooldown);
 
-          if (principalVal > 0 || rewardsVal > 0) {
-            // Sync on-chain truth to local storage
+          if (principalVal > 0) {
+            principalStr = ethers.formatEther(principal);
             saveLocalStake(address, {
               principal: principalVal,
               depositedAt: Date.now(),
-              accumulatedRewards: rewardsVal,
+              accumulatedRewards: 0,
               lastCalcAt: Date.now(),
             });
-            setState({
-              principal: ethers.formatEther(principal),
-              availableRewards: ethers.formatEther(rewards),
-              faucetCooldown,
-              loading: false,
-            });
-            return;
           }
         } catch {
           // On-chain call failed — fall through to local sim
@@ -81,25 +75,20 @@ export function useStaking() {
       }
     }
 
-    // ── 2. Fall back to local simulation ──────────────
-    const local = getLocalStake(address);
-    if (local && (local.principal > 0 || local.accumulatedRewards > 0)) {
-      const rewards = calcSimulatedRewards(local);
-      const now = Date.now();
-      saveLocalStake(address, { ...local, accumulatedRewards: rewards, lastCalcAt: now });
-      setState({
-        principal: local.principal.toString(),
-        availableRewards: rewards.toFixed(18),
-        faucetCooldown,
-        loading: false,
-      });
-      return;
+    // ── 2. Fall back to local sim for principal ──────
+    if (principalStr === '0') {
+      const local = getLocalStake(address);
+      if (local && local.principal > 0) {
+        principalStr = local.principal.toString();
+      }
     }
 
-    // ── 3. No data anywhere — explicitly set zeros ────
+    // ── 3. Game winnings = available rewards ──────────
+    const gameWinnings = getGameWinnings(address);
+
     setState({
-      principal: '0',
-      availableRewards: '0',
+      principal: principalStr,
+      availableRewards: gameWinnings.toString(),
       faucetCooldown,
       loading: false,
     });

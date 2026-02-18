@@ -22,7 +22,8 @@ const Portfolio = () => {
 
   const principalNum = parseFloat(principal);
   const rewardsNum = parseFloat(availableRewards);
-  const totalPosition = principalNum + rewardsNum;
+  const walletBal = parseFloat(balance) || 0;
+  const totalPosition = principalNum + walletBal;
 
   return (
     <div className="min-h-screen">
@@ -68,7 +69,7 @@ const Portfolio = () => {
             <MetricCard
               label="Available Rewards"
               value={isConnected ? `${rewardsNum.toFixed(6)} MON` : '0.00 MON'}
-              subValue={isConnected ? 'Usable for lobbies' : 'Connect wallet'}
+              subValue={isConnected ? 'Earned from games' : 'Connect wallet'}
               trend={isConnected && rewardsNum > 0 ? { value: 8.0, positive: true } : undefined}
               icon={<TrendingUp className="w-5 h-5" />}
               delay={100}
@@ -76,7 +77,7 @@ const Portfolio = () => {
             <MetricCard
               label="Total Position"
               value={isConnected ? `${totalPosition.toFixed(4)} MON` : '0.00 MON'}
-              subValue={isConnected ? 'Principal + rewards' : 'Connect wallet'}
+              subValue={isConnected ? 'Deposited + wallet' : 'Connect wallet'}
               icon={<ArrowUpRight className="w-5 h-5" />}
               delay={200}
             />
