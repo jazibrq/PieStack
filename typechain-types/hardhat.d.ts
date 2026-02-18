@@ -18,6 +18,14 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.GameManager__factory>;
     getContractFactory(
+      name: "LobbyFactory",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.LobbyFactory__factory>;
+    getContractFactory(
+      name: "Match",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Match__factory>;
+    getContractFactory(
       name: "StakingAdapter",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.StakingAdapter__factory>;
@@ -28,6 +36,16 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.GameManager>;
     getContractAt(
+      name: "LobbyFactory",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.LobbyFactory>;
+    getContractAt(
+      name: "Match",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Match>;
+    getContractAt(
       name: "StakingAdapter",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -38,6 +56,14 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.GameManager>;
     deployContract(
+      name: "LobbyFactory",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.LobbyFactory>;
+    deployContract(
+      name: "Match",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Match>;
+    deployContract(
       name: "StakingAdapter",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.StakingAdapter>;
@@ -47,6 +73,16 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.GameManager>;
+    deployContract(
+      name: "LobbyFactory",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.LobbyFactory>;
+    deployContract(
+      name: "Match",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Match>;
     deployContract(
       name: "StakingAdapter",
       args: any[],

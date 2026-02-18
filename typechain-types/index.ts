@@ -2,7 +2,11 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { GameManager } from "./GameManager";
+export type { LobbyFactory } from "./LobbyFactory";
+export type { Match } from "./Match";
 export type { StakingAdapter } from "./StakingAdapter";
 export * as factories from "./factories";
 export { GameManager__factory } from "./factories/GameManager__factory";
+export { LobbyFactory__factory } from "./factories/LobbyFactory__factory";
+export { Match__factory } from "./factories/Match__factory";
 export { StakingAdapter__factory } from "./factories/StakingAdapter__factory";

@@ -2,4 +2,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export { GameManager__factory } from "./GameManager__factory";
+export { LobbyFactory__factory } from "./LobbyFactory__factory";
+export { Match__factory } from "./Match__factory";
 export { StakingAdapter__factory } from "./StakingAdapter__factory";
