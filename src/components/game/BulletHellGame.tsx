@@ -142,7 +142,7 @@ function createInitialState(): GameState {
     kills: 0,
     waveTimer: 0,
     spawnTimer: 0,
-    spawnRate: 800,
+    spawnRate: 1064,
     screenShake: 0,
     shakeIntensity: 0,
     message: 'STAGE 1',
@@ -165,9 +165,12 @@ function enemyColor(type: string): string {
   }
 }
 
+// Weighted pool: 'basic' appears 5× so ~50% of enemies use the enemy.png sprite
+const ENEMY_TYPE_POOL = ['basic','basic','basic','basic','basic','circle','spiral','tank','sniper','burst'];
+
 function spawnEnemy(stage: number, wave: number): Enemy {
-  // All 6 types available from wave 1 — every wave is a mix
-  const type = ENEMY_TYPES_ALL[randInt(0, ENEMY_TYPES_ALL.length - 1)];
+  // Weighted pick — basic (enemy.png) is most common
+  const type = ENEMY_TYPE_POOL[randInt(0, ENEMY_TYPE_POOL.length - 1)];
 
   // Difficulty offset: stage 1 plays like old stage 2 (effective = stage + 1)
   const eff = stage + 1;
@@ -429,7 +432,7 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
             s.wave = 1;
             s.waveTimer = 0;
             s.spawnTimer = 0;
-            s.spawnRate = Math.max(250, Math.floor(800 * Math.pow(0.82, s.stage - 1)));
+            s.spawnRate = Math.max(333, Math.floor(1064 * Math.pow(0.82, s.stage - 1)));
             s.enemyBullets = [];
             s.enemies = [];
             s.score += SCORE_STAGE;
@@ -450,7 +453,7 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
       // More enemies per wave: +3 per wave within each stage
       const maxE = Math.min(MAX_ENEMIES, Math.floor(ENEMIES_PER_WAVE * stageScale) + (s.wave - 1) * 3);
       // Spawn faster each wave: reduce interval by 10% per wave
-      const waveSpawnRate = Math.max(180, s.spawnRate * Math.pow(0.90, s.wave - 1));
+      const waveSpawnRate = Math.max(240, s.spawnRate * Math.pow(0.90, s.wave - 1));
 
       if (s.spawnTimer >= waveSpawnRate && s.enemies.length < maxE) {
         s.enemies.push(spawnEnemy(s.stage, s.wave));
@@ -570,7 +573,7 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
         s.wave++;
         s.waveTimer = 0;
         const waveProgress = (s.wave - 1) / WAVES_PER_STAGE;
-        s.spawnRate = Math.max(200, Math.floor(800 * Math.pow(0.82, s.stage - 1) * (1 - waveProgress * 0.4)));
+        s.spawnRate = Math.max(266, Math.floor(1064 * Math.pow(0.82, s.stage - 1) * (1 - waveProgress * 0.4)));
         if (s.wave > WAVES_PER_STAGE) {
           // Spawn boss
           s.boss = createBoss(s.stage);

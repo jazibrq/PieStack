@@ -72,9 +72,18 @@ export const StatusBadge = ({ status, children, className }: StatusBadgeProps) =
 
 // Animated number component
 const AnimatedValue = ({ value, duration = 1500 }: { value: string; duration?: number }) => {
-  const [displayValue, setDisplayValue] = useState('0');
+  const [displayValue, setDisplayValue] = useState(value);
   const [hasAnimated, setHasAnimated] = useState(false);
+  const prevValueRef = useRef(value);
   const ref = useRef<HTMLSpanElement>(null);
+
+  // Keep displayValue in sync when the value prop changes AFTER initial animation
+  useEffect(() => {
+    if (hasAnimated && value !== prevValueRef.current) {
+      setDisplayValue(value);
+    }
+    prevValueRef.current = value;
+  }, [value, hasAnimated]);
 
   useEffect(() => {
     const element = ref.current;
