@@ -107,7 +107,7 @@ export function useStaking() {
 
     // Fall back to local simulation
     const local = getLocalStake(address);
-    if (local && local.principal > 0) {
+    if (local && (local.principal > 0 || local.accumulatedRewards > 0)) {
       const rewards = calcSimulatedRewards(local);
       const now = Date.now();
       saveLocalStake(address, { ...local, accumulatedRewards: rewards, lastCalcAt: now });
@@ -120,11 +120,11 @@ export function useStaking() {
     }
   }, [isConnected, address, getContract]);
 
-  // Refresh balances on mount and periodically
+  // Refresh balances on mount and frequently so metrics stay live
   useEffect(() => {
     fetchBalances();
     if (!isConnected) return;
-    const interval = setInterval(fetchBalances, 15000);
+    const interval = setInterval(fetchBalances, 3000);
     return () => clearInterval(interval);
   }, [fetchBalances, isConnected]);
 
