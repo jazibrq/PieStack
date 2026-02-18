@@ -1,7 +1,5 @@
-import coinbaseLogo from '@/assets/coinbase-logo.svg';
 import chainlinkLogo from '@/assets/chainlink-logo.svg';
 import uniswapLogo from '@/assets/uniswap-logo.svg';
-import baseLogo from '@/assets/base-logo.svg';
 
 // Monad inline logo
 const MonadLogo = () => (
@@ -19,11 +17,22 @@ const StMonadLogo = () => (
   </svg>
 );
 
+// ETH diamond logo
+const EthLogo = () => (
+  <svg viewBox="0 0 32 32" className="w-auto h-6">
+    <g transform="translate(16, 16)">
+      <polygon points="0,-14 8,0 0,4 -8,0" fill="#627EEA" />
+      <polygon points="0,4 8,0 0,14 -8,0" fill="#3C3C3D" />
+      <polygon points="0,-14 0,4 -8,0" fill="#8A92B2" opacity="0.6" />
+      <polygon points="0,4 0,14 -8,0" fill="#8A92B2" opacity="0.6" />
+    </g>
+  </svg>
+);
+
 const partners = [
-  { name: 'Coinbase Developer Platforms', logo: coinbaseLogo, height: 'h-4', isComponent: false },
+  { name: 'Ethereum', logo: EthLogo, height: 'h-6', isComponent: true },
   { name: 'ChainLink', logo: chainlinkLogo, height: 'h-6', isComponent: false },
   { name: 'UniSwap', logo: uniswapLogo, height: 'h-5', isComponent: false },
-  { name: 'Base', logo: baseLogo, height: 'h-6', isComponent: false },
   { name: 'MON', logo: MonadLogo, height: 'h-6', isComponent: true },
   { name: 'sMON', logo: StMonadLogo, height: 'h-6', isComponent: true },
 ];

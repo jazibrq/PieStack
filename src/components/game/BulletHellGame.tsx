@@ -150,19 +150,23 @@ function createInitialState(): GameState {
 function spawnEnemy(stage: number, wave: number): Enemy {
   const types = ['basic', 'circle', 'spiral'];
   const type = types[randInt(0, Math.min(types.length - 1, stage))];
-  const speedMult = Math.pow(1.2, stage - 1);
-  const hpMult = Math.pow(1.2, stage - 1);
+  // Stage scaling (big jumps between stages)
+  const stageSpeedMult = Math.pow(1.2, stage - 1);
+  const stageHpMult = Math.pow(1.2, stage - 1);
+  // Wave scaling within a stage (gentle ramp: +5% per wave)
+  const waveMult = 1 + (wave - 1) * 0.05;
 
   return {
     x: rand(40, GAME_W - 40),
     y: -30,
-    hp: Math.floor(ENEMY_HP * hpMult),
-    maxHp: Math.floor(ENEMY_HP * hpMult),
+    hp: Math.floor(ENEMY_HP * stageHpMult * waveMult),
+    maxHp: Math.floor(ENEMY_HP * stageHpMult * waveMult),
     size: ENEMY_SIZE,
-    speed: ENEMY_BASE_SPEED * speedMult * (type === 'circle' ? 0.8 : 1),
+    speed: ENEMY_BASE_SPEED * stageSpeedMult * waveMult * (type === 'circle' ? 0.8 : 1),
     color: type === 'basic' ? COL.enemy : type === 'circle' ? COL.enemyCircle : COL.enemySpiral,
     shootTimer: rand(500, 2000),
-    shootCD: type === 'spiral' ? 400 : 1200,
+    // Enemies shoot faster each wave (reduce CD by 6% per wave)
+    shootCD: Math.max(200, (type === 'spiral' ? 400 : 1200) * Math.pow(0.94, wave - 1)),
     type,
     moveAngle: rand(0, Math.PI * 2),
     moveTimer: 0,
@@ -409,9 +413,12 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
       s.spawnTimer += dt;
 
       const stageScale = Math.pow(1.3, s.stage - 1);
+      // More enemies per wave: +2 per wave within each stage
       const maxE = Math.min(MAX_ENEMIES, Math.floor(ENEMIES_PER_WAVE * stageScale) + (s.wave - 1) * 2);
+      // Spawn faster each wave: reduce interval by 8% per wave
+      const waveSpawnRate = Math.max(250, s.spawnRate * Math.pow(0.92, s.wave - 1));
 
-      if (s.spawnTimer >= s.spawnRate && s.enemies.length < maxE) {
+      if (s.spawnTimer >= waveSpawnRate && s.enemies.length < maxE) {
         s.enemies.push(spawnEnemy(s.stage, s.wave));
         s.spawnTimer = 0;
       }
@@ -445,7 +452,8 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
         e.shootTimer -= dt;
         if (e.shootTimer <= 0 && e.y > 0) {
           e.shootTimer = e.shootCD;
-          const eBSpd = BULLET_SPEED * Math.pow(1.15, s.stage - 1);
+          // Bullet speed scales with both stage and wave (+4% per wave)
+          const eBSpd = BULLET_SPEED * Math.pow(1.15, s.stage - 1) * (1 + (s.wave - 1) * 0.04);
           if (e.type === 'spiral') {
             for (let j = 0; j < 4; j++) {
               const a = (j / 4) * Math.PI * 2 + e.moveAngle;
