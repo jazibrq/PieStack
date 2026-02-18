@@ -12,7 +12,8 @@ import { Leaderboard } from '@/components/home/Leaderboard';
 import { BulletHellGame } from '@/components/game/BulletHellGame';
 import {
   Plus, Users, Filter, Search,
-  ChevronDown, Swords, Clock, Gamepad2
+  ChevronDown, Swords, Clock, Gamepad2,
+  Trophy, Medal, Award, TrendingUp, RotateCcw, ArrowLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -28,6 +29,54 @@ import { useStaking } from '@/hooks/useStaking';
 
 const lobbySizes = [2, 4, 8, 16];
 const sortOptions = ['Most Recent', 'Highest Stake'];
+
+const LEADERBOARD_NAMES = [
+  'CryptoKing', 'YieldHunter', 'StackMaster', 'DeFiPro',
+  'VaultRunner', 'EthWizard', 'StakeNinja', 'AwardSeeker',
+  'GameTheory', 'ChainPlayer', 'SatoshiFan', 'BlockRunner',
+  'HashHero', 'GasGuru', 'NonceLord', 'MevBot',
+];
+const LEADERBOARD_ADDRS = [
+  '0x742d...bD38', '0x8Ba1...BA72', '0xdD2F...4C0', '0x2546...c30',
+  '0xbDA5...97E', '0xA0b8...B48', '0x6B17...1d0F', '0xdAC1...1ec7',
+  '0x1f98...F984', '0xC02a...6Cc2', '0x514a...2Db7', '0x9f8F...E4b0',
+  '0x3845...bC21', '0xFe29...9D03', '0xAb5C...7F12', '0xD8a1...0E45',
+];
+
+interface LbEntry {
+  rank: number;
+  name: string;
+  address: string;
+  score: number;
+  yield: string;
+  isYou: boolean;
+}
+
+function buildPostGameBoard(playerScore: number, lobbySize: number, buyIn: number): LbEntry[] {
+  const pool = buyIn * lobbySize;
+  const entries: LbEntry[] = [{ rank: 0, name: 'You', address: 'You', score: playerScore, yield: '0', isYou: true }];
+  // seeded RNG so same score gives same board
+  let seed = playerScore + lobbySize * 1000;
+  const rng = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const used = new Set<number>();
+  for (let i = 0; i < lobbySize - 1; i++) {
+    let ni: number;
+    do { ni = Math.floor(rng() * LEADERBOARD_NAMES.length); } while (used.has(ni));
+    used.add(ni);
+    entries.push({ rank: 0, name: LEADERBOARD_NAMES[ni], address: LEADERBOARD_ADDRS[ni % LEADERBOARD_ADDRS.length], score: Math.max(100, Math.floor(playerScore * (0.3 + rng() * 1.4))), yield: '0', isYou: false });
+  }
+  entries.sort((a, b) => b.score - a.score);
+  const splits = [0.50, 0.25, 0.15];
+  const rest = lobbySize > 3 ? 0.10 / (lobbySize - 3) : 0;
+  entries.forEach((e, i) => { e.rank = i + 1; e.yield = (pool * (i < 3 ? splits[i] : rest)).toFixed(4); });
+  return entries;
+}
+
+const RANK_ICONS: Record<number, React.ReactNode> = {
+  1: <Trophy className="w-5 h-5 text-amber-400" />,
+  2: <Medal className="w-5 h-5 text-slate-300" />,
+  3: <Award className="w-5 h-5 text-amber-600" />,
+};
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -45,6 +94,8 @@ const Play = () => {
   // Game state
   const [gamePlaying, setGamePlaying] = useState(false);
   const [lastGameResult, setLastGameResult] = useState<{ score: number; stage: number; kills: number } | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [activeLobbyContext, setActiveLobbyContext] = useState<{ size: number; buyIn: number }>({ size: 4, buyIn: 0.05 });
 
   const { isConnected, connect } = useWallet();
   const { activeLobbies, joinLobby, loading: gameLoading } = useGameManager();
@@ -85,22 +136,32 @@ const Play = () => {
 
   const handleStartQuickPlay = useCallback(() => {
     setLastGameResult(null);
+    setShowLeaderboard(false);
+    setActiveLobbyContext({ size: 4, buyIn: 0.05 });
     setGamePlaying(true);
   }, []);
 
   const handleGameOver = useCallback((score: number, stage: number, kills: number) => {
     setLastGameResult({ score, stage, kills });
     setGamePlaying(false);
+    setShowLeaderboard(true);
   }, []);
 
   const handleGameExit = useCallback(() => {
     setGamePlaying(false);
   }, []);
 
+  const postGameBoard = useMemo(() => {
+    if (!lastGameResult) return [];
+    return buildPostGameBoard(lastGameResult.score, activeLobbyContext.size, activeLobbyContext.buyIn);
+  }, [lastGameResult, activeLobbyContext]);
+
   const handleJoinLobby = async (lobby: LobbyData & { isFake?: boolean }) => {
     // Fake lobby — just start the game directly
     if (lobby.isFake) {
       setLastGameResult(null);
+      setShowLeaderboard(false);
+      setActiveLobbyContext({ size: lobby.maxPlayers, buyIn: parseFloat(lobby.buyIn) });
       setGamePlaying(true);
       return;
     }
@@ -147,6 +208,113 @@ const Play = () => {
       {/* Full-screen game overlay */}
       {gamePlaying && (
         <BulletHellGame onGameOver={handleGameOver} onExit={handleGameExit} />
+      )}
+
+      {/* Post-Game Leaderboard Overlay */}
+      {showLeaderboard && lastGameResult && (
+        <div className="fixed inset-0 z-[100] bg-[#050510] overflow-y-auto">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
+          </div>
+          <div className="relative z-10 min-h-screen flex flex-col items-center justify-start py-8 px-4">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary via-cyan-300 to-primary bg-clip-text text-transparent">
+                Match Complete
+              </h1>
+              <div className="flex items-center justify-center gap-6 text-sm font-mono text-muted-foreground mt-3">
+                <span>Score: <span className="text-primary">{lastGameResult.score.toLocaleString()}</span></span>
+                <span>&bull;</span>
+                <span>Stage: <span className="text-amber-400">{lastGameResult.stage}</span></span>
+                <span>&bull;</span>
+                <span>Kills: <span className="text-emerald-400">{lastGameResult.kills}</span></span>
+              </div>
+            </div>
+
+            {/* Player placement banner */}
+            {(() => { const me = postGameBoard.find(e => e.isYou); if (!me) return null; return (
+              <div className={cn('w-full max-w-2xl mb-6 rounded-xl border p-5 text-center',
+                me.rank === 1 ? 'border-amber-400/40 bg-amber-400/5' : me.rank <= 3 ? 'border-primary/30 bg-primary/5' : 'border-border bg-surface-2/50'
+              )}>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  {RANK_ICONS[me.rank] || <span className="text-muted-foreground font-bold">#{me.rank}</span>}
+                  <span className="text-2xl font-bold">
+                    {me.rank === 1 ? '\ud83c\udfc6 Victory!' : me.rank <= 3 ? `#${me.rank} Place!` : `#${me.rank} Place`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <span className="text-muted-foreground">Yield Earned:</span>
+                  <span className="font-mono font-bold text-emerald-400 text-lg">{me.yield} MON</span>
+                </div>
+              </div>
+            ); })()}
+
+            {/* Lobby stats */}
+            <div className="w-full max-w-2xl grid grid-cols-3 gap-3 mb-6">
+              <div className="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Lobby Size</p>
+                <p className="font-mono font-bold text-lg">{activeLobbyContext.size}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Buy-in</p>
+                <p className="font-mono font-bold text-lg text-primary">{activeLobbyContext.buyIn} MON</p>
+              </div>
+              <div className="rounded-lg border border-border bg-surface-2/30 p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Prize Pool</p>
+                <p className="font-mono font-bold text-lg text-amber-400">{(activeLobbyContext.buyIn * activeLobbyContext.size).toFixed(4)} MON</p>
+              </div>
+            </div>
+
+            {/* Leaderboard table */}
+            <div className="w-full max-w-2xl rounded-xl border border-border overflow-hidden bg-surface-2/20 backdrop-blur-sm">
+              <div className="px-5 py-3 border-b border-border bg-surface-2/40">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Final Standings</h2>
+              </div>
+              <div className="divide-y divide-border">
+                {postGameBoard.map((entry) => (
+                  <div
+                    key={entry.rank}
+                    className={cn(
+                      'flex items-center gap-4 px-5 py-3.5 transition-colors',
+                      entry.isYou && 'bg-primary/5 border-l-2 border-l-primary',
+                      !entry.isYou && entry.rank <= 3 && (entry.rank === 1 ? 'bg-gradient-to-r from-amber-400/10 to-transparent' : entry.rank === 2 ? 'bg-gradient-to-r from-slate-300/5 to-transparent' : 'bg-gradient-to-r from-amber-600/5 to-transparent'),
+                    )}
+                  >
+                    <div className="w-8 flex-shrink-0 flex items-center justify-center">
+                      {RANK_ICONS[entry.rank] || <span className="text-sm font-mono text-muted-foreground">#{entry.rank}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-sm font-semibold truncate', entry.isYou && 'text-primary')}>
+                        {entry.name}{entry.isYou && <span className="ml-2 text-xs text-primary/60">(You)</span>}
+                      </p>
+                      <p className="text-xs font-mono text-muted-foreground">{entry.address}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-medium">{entry.score.toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Score</p>
+                    </div>
+                    <div className="text-right min-w-[90px]">
+                      <p className={cn('font-mono text-sm font-bold', entry.rank === 1 ? 'text-amber-400' : entry.rank <= 3 ? 'text-emerald-400' : 'text-muted-foreground')}>
+                        +{entry.yield} MON
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Yield</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 mt-8">
+              <Button onClick={() => { setShowLeaderboard(false); handleStartQuickPlay(); }} className="btn-cyan-gradient gap-2 px-6 py-3">
+                <RotateCcw className="w-4 h-4" /> Play Again
+              </Button>
+              <Button onClick={() => setShowLeaderboard(false)} variant="outline" className="gap-2 px-6 py-3">
+                <ArrowLeft className="w-4 h-4" /> Back to Lobbies
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       <VideoBackground />

@@ -225,6 +225,19 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
   const [gameOver, setGameOver] = useState(false);
   const gameOverCalledRef = useRef(false);
 
+  // Sprite images
+  const playerImgRef = useRef<HTMLImageElement | null>(null);
+  const enemyImgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const pImg = new Image();
+    pImg.src = '/game/player.png';
+    pImg.onload = () => { playerImgRef.current = pImg; };
+    const eImg = new Image();
+    eImg.src = '/game/enemy.png';
+    eImg.onload = () => { enemyImgRef.current = eImg; };
+  }, []);
+
   // ─── Input ──────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -516,7 +529,7 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
       addExplosion(s.particles, p.x, p.y, COL.enemy, 50);
       addExplosion(s.particles, p.x, p.y, COL.combo, 40);
       addExplosion(s.particles, p.x, p.y, '#ffffff', 30);
-      s.screenShake = 20; s.shakeIntensity = 15;
+      s.screenShake = 8; s.shakeIntensity = 4;
       s.status = 'game_over';
     }
 
@@ -643,29 +656,33 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
       ctx.beginPath();
       ctx.arc(e.x, e.y, e.size * 1.4, 0, Math.PI * 2);
       ctx.fill();
-      // Body
-      ctx.fillStyle = e.color;
-      if (e.type === 'circle') {
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (e.type === 'spiral') {
-        // Diamond shape
-        ctx.beginPath();
-        ctx.moveTo(e.x, e.y - e.size);
-        ctx.lineTo(e.x + e.size * 0.7, e.y);
-        ctx.lineTo(e.x, e.y + e.size);
-        ctx.lineTo(e.x - e.size * 0.7, e.y);
-        ctx.closePath();
-        ctx.fill();
+      // Body — use enemy.png sprite if loaded
+      const eImg = enemyImgRef.current;
+      if (eImg) {
+        const spriteS = e.size * 2.5;
+        ctx.drawImage(eImg, e.x - spriteS / 2, e.y - spriteS / 2, spriteS, spriteS);
       } else {
-        // Triangle
-        ctx.beginPath();
-        ctx.moveTo(e.x, e.y + e.size);
-        ctx.lineTo(e.x - e.size * 0.8, e.y - e.size * 0.6);
-        ctx.lineTo(e.x + e.size * 0.8, e.y - e.size * 0.6);
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillStyle = e.color;
+        if (e.type === 'circle') {
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (e.type === 'spiral') {
+          ctx.beginPath();
+          ctx.moveTo(e.x, e.y - e.size);
+          ctx.lineTo(e.x + e.size * 0.7, e.y);
+          ctx.lineTo(e.x, e.y + e.size);
+          ctx.lineTo(e.x - e.size * 0.7, e.y);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(e.x, e.y + e.size);
+          ctx.lineTo(e.x - e.size * 0.8, e.y - e.size * 0.6);
+          ctx.lineTo(e.x + e.size * 0.8, e.y - e.size * 0.6);
+          ctx.closePath();
+          ctx.fill();
+        }
       }
       // HP bar
       if (e.hp < e.maxHp) {
@@ -722,17 +739,24 @@ export const BulletHellGame = ({ onGameOver, onExit }: BulletHellGameProps) => {
         ctx.beginPath();
         ctx.arc(p.x, p.y, PLAYER_SIZE * 2, 0, Math.PI * 2);
         ctx.fill();
-        // Ship body (triangle pointing up)
-        ctx.fillStyle = COL.player;
-        ctx.shadowColor = COL.player;
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y - PLAYER_SIZE);
-        ctx.lineTo(p.x - PLAYER_SIZE * 0.8, p.y + PLAYER_SIZE * 0.6);
-        ctx.lineTo(p.x + PLAYER_SIZE * 0.8, p.y + PLAYER_SIZE * 0.6);
-        ctx.closePath();
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        // Ship body — use player.png sprite if loaded
+        const pImg = playerImgRef.current;
+        if (pImg) {
+          const spriteW = PLAYER_SIZE * 3;
+          const spriteH = PLAYER_SIZE * 3 * (pImg.naturalHeight / pImg.naturalWidth);
+          ctx.drawImage(pImg, p.x - spriteW / 2, p.y - spriteH / 2, spriteW, spriteH);
+        } else {
+          ctx.fillStyle = COL.player;
+          ctx.shadowColor = COL.player;
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y - PLAYER_SIZE);
+          ctx.lineTo(p.x - PLAYER_SIZE * 0.8, p.y + PLAYER_SIZE * 0.6);
+          ctx.lineTo(p.x + PLAYER_SIZE * 0.8, p.y + PLAYER_SIZE * 0.6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
         // Engine glow
         ctx.fillStyle = '#ff8800';
         ctx.beginPath();

@@ -6,7 +6,7 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying with account:", deployer.address);
 
-  // 1. Deploy StakingAdapter
+  // 1. Deploy StakingAdapterasd
   const StakingAdapter = await ethers.getContractFactory("StakingAdapter");
   const stakingAdapter = await StakingAdapter.deploy();
   await stakingAdapter.waitForDeployment();
